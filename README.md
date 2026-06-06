@@ -3,6 +3,8 @@
 
 > A complete, copy‑paste blueprint for self‑hosting the **Nous Research Hermes Agent** on hardware you own — a VPS, a mini‑PC, or an old desktop gathering dust — reachable **only** over your own private mesh network, backing itself up every night, and surviving reboots without you lifting a finger.
 
+![Hermes Desktop app (beta preview): agent sidebar, streaming chat with inline tool cards, and a model picker](assets/hermes-desktop.webp)
+
 This guide is **hardware‑agnostic** and **fully sanitized**. Every secret or personal value is written as a `<PLACEHOLDER>`. Swap in your own and you have a working deployment.
 
 ---
@@ -100,35 +102,7 @@ Every later choice flows from five principles. Read these once and the rest of t
 
 ## 3. Architecture overview
 
-```mermaid
-flowchart LR
-    subgraph host["Your always-on host — Spare PC / VPS / mini-PC (on the Tailscale mesh)"]
-        direction TB
-        subgraph docker["Docker"]
-            hermes["hermes container<br/>gateway run + dashboard<br/>:9119 dashboard · :8642 API (dormant)"]
-            data[("./data volume<br/>config · auth · sessions")]
-            hermes --- data
-        end
-        cli["/usr/local/bin/hermes<br/>(host CLI wrapper)"]
-        tui["/usr/local/bin/hermes-tui<br/>(tmux + chat TUI)"]
-        cron["nightly cron → git backup"]
-        cli -. docker exec .-> hermes
-        tui -. runs .-> cli
-        cron -. reads .-> data
-    end
-    subgraph clients["Other devices on your mesh"]
-        desktop["Desktop app / phone / browser"]
-    end
-    subgraph offsite["Off-site backup (a host you control)"]
-        repo[("Private backup repo<br/>secrets git-ignored")]
-    end
-    hermes -- "dashboard http://&lt;TAILSCALE_IP&gt;:9119" --> desktop
-    cron -- "git push (SSH)" --> repo
-    style host fill:#aab2c033,stroke:#aab2c0
-    style docker fill:#aab2c033,stroke:#aab2c0
-    style clients fill:#aab2c033,stroke:#aab2c0
-    style offsite fill:#aab2c033,stroke:#aab2c0
-```
+![Architecture: your always-on host on the Tailscale mesh (Docker hermes container + data volume, host CLI and tmux TUI, nightly cron git-push to an off-site backup repo) plus other mesh devices reaching the dashboard](assets/architecture.png)
 
 **Components:**
 
