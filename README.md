@@ -7,6 +7,12 @@ This guide is **hardware‑agnostic** and **fully sanitized**. Every secret or p
 
 ---
 
+> [!TIP]
+> **In a hurry? Let your AI agent do it for you.** Skip the manual steps and **[jump to the AI agent setup prompt](#ai-agent-autonomous-setup-prompt)** — paste it into your favorite coding agent (Claude Code, Cursor, etc.) and it performs the entire install, pausing only to hand you the one login link it needs.
+
+> [!WARNING]
+> **Use at your own risk.** These instructions — and the AI agent setup prompt — are provided **as is, with no warranty of any kind**. **Review and understand every command before you run it.** You alone are responsible for anything you execute on your systems; the author and Epsilon LLC accept **no liability** for any damage, data loss, downtime, lockout, or security issue that may result. The AI agent prompt makes changes to your system autonomously — supervise it and approve each step deliberately. By following this guide, you accept these terms (the guide is provided under the MIT License).
+
 ## Table of contents
 
 1. [What this is & who it's for](#1-what-this-is--who-its-for)
@@ -642,7 +648,10 @@ curl -s http://<TAILSCALE_IP>:9119/api/status
 
 ---
 
-## AI‑agent autonomous‑setup prompt
+## AI agent autonomous setup prompt
+
+> [!CAUTION]
+> **Run this prompt at your own risk.** It instructs an AI agent to make real changes to your system — installing packages, running Docker, editing configuration. It is provided **as is, with no warranty** and **no liability** on the part of the author or Epsilon LLC. Read the prompt in full, supervise the agent at every step, and verify each command before you approve it.
 
 Copy everything in the box below into your preferred coding agent (Claude Code, Cursor, etc.). Fill in the **OPERATOR INPUTS** first. The agent does the full install and **pauses only for the Tailscale browser login**, handing you the authentication URL.
 
