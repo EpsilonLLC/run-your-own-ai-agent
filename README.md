@@ -10,7 +10,7 @@ This guide is **hardware‑agnostic** and **fully sanitized**. Every secret or p
 ---
 
 > [!TIP]
-> **In a hurry? Let your AI agent do it for you.** Skip the manual steps and **[jump to the AI agent setup prompt](#ai-agent-autonomous-setup-prompt)** — paste it into your favorite coding agent (Claude Code, Cursor, etc.) and it performs the entire install, pausing only to hand you the one login link it needs.
+> **In a hurry? Let your AI agent do it for you.** Skip the manual steps and **[jump to the AI agent setup prompt](#ai-agent-autonomous-setup-prompt)** — paste it into your favorite coding agent (Claude Code, Cursor, etc.) and it performs the entire install, pausing for the Tailscale login link it hands you (and, if you opt into a chat channel, for the bot token).
 
 > [!WARNING]
 > **Use at your own risk.** These instructions — and the AI agent setup prompt — are provided **as is, with no warranty of any kind**. **Review and understand every command before you run it.** You alone are responsible for anything you execute on your systems; the author and Epsilon LLC accept **no liability** for any damage, data loss, downtime, lockout, or security issue that may result. The AI agent prompt makes changes to your system autonomously — supervise it and approve each step deliberately. By following this guide, you accept these terms (the guide is provided under the MIT License).
