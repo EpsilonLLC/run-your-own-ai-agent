@@ -80,7 +80,7 @@ Hermes Agent is an open‑source AI agent you can run yourself. Most people poin
 You want this if you:
 
 - Want an agent that runs 24/7 without a laptop staying open.
-- Don't want your prompts, files, or tokens leaving infrastructure you own.
+- Want the agent's backend, sessions, files, and tokens to live on hardware you own instead of a third-party agent host. (Your prompts still go to whichever model provider you configure for inference, unless you point Hermes at a local model.)
 - Have a spare machine (or a cheap VPS) and a few hours.
 - Like the idea of "set it up once, it heals itself" — restarts on reboot, backs itself up nightly.
 
