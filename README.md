@@ -101,31 +101,32 @@ Every later choice flows from five principles. Read these once and the rest of t
 ## 3. Architecture overview
 
 ```mermaid
-flowchart TB
-    subgraph mesh["Your private mesh network (Tailscale)"]
-        subgraph box["Spare PC / VPS / mini-PC — runs 24/7"]
-            subgraph docker["Docker"]
-                hermes["hermes container<br/>gateway run + dashboard<br/>:9119 dashboard · :8642 API (dormant)"]
-                data[("./data volume<br/>config · auth · sessions")]
-                hermes --- data
-            end
-            cli["/usr/local/bin/hermes<br/>(host CLI wrapper)"]
-            tui["/usr/local/bin/hermes-tui<br/>(tmux + chat TUI)"]
-            cron["nightly cron → git backup"]
-            cli -. docker exec .-> hermes
-            tui -. runs .-> cli
-            cron -. reads .-> data
+flowchart LR
+    subgraph host["Your always-on host — Spare PC / VPS / mini-PC (on the Tailscale mesh)"]
+        direction TB
+        subgraph docker["Docker"]
+            hermes["hermes container<br/>gateway run + dashboard<br/>:9119 dashboard · :8642 API (dormant)"]
+            data[("./data volume<br/>config · auth · sessions")]
+            hermes --- data
         end
-        desktop["Desktop app / phone / browser<br/>(another device on the mesh)"]
-        desktop -- "http://&lt;TAILSCALE_IP&gt;:9119" --> hermes
+        cli["/usr/local/bin/hermes<br/>(host CLI wrapper)"]
+        tui["/usr/local/bin/hermes-tui<br/>(tmux + chat TUI)"]
+        cron["nightly cron → git backup"]
+        cli -. docker exec .-> hermes
+        tui -. runs .-> cli
+        cron -. reads .-> data
+    end
+    subgraph clients["Other devices on your mesh"]
+        desktop["Desktop app / phone / browser"]
     end
     subgraph offsite["Off-site backup (a host you control)"]
         repo[("Private backup repo<br/>secrets git-ignored")]
     end
+    hermes -- "dashboard http://&lt;TAILSCALE_IP&gt;:9119" --> desktop
     cron -- "git push (SSH)" --> repo
-    style mesh fill:#aab2c033,stroke:#aab2c0
-    style box fill:#aab2c033,stroke:#aab2c0
+    style host fill:#aab2c033,stroke:#aab2c0
     style docker fill:#aab2c033,stroke:#aab2c0
+    style clients fill:#aab2c033,stroke:#aab2c0
     style offsite fill:#aab2c033,stroke:#aab2c0
 ```
 
