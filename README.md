@@ -15,7 +15,7 @@ This guide is **hardware‑agnostic** and **fully sanitized**. Every secret or p
 > [!TIP]
 > **Bring your own subscription, or run models locally.** As of 2026-06-06 you don't need a separate per-token API bill:
 >
-> - **Use your ChatGPT Plus/Pro subscription** through the **OpenAI Codex** provider: run `hermes model`, pick *OpenAI Codex*, and complete the device-code login (open a URL, enter a code — no Codex CLI required). Claude Max (Anthropic) and Google Gemini offer similar subscription / OAuth logins.
+> - **Use your ChatGPT Plus/Pro subscription** through the **OpenAI Codex** provider: run `hermes model`, pick *OpenAI Codex*, and complete the device-code login (open a URL, enter a code — no Codex CLI required).
 > - **Run your own local models** and connect them to Hermes: pick *Custom endpoint* in `hermes model` and point it at any OpenAI-compatible URL, e.g. Ollama (`http://localhost:11434/v1`), LM Studio (`http://localhost:1234/v1`), llama.cpp (`http://localhost:8080/v1`), or vLLM (`http://localhost:8000/v1`). From the Docker container, target the host instead of `localhost` (e.g. `http://host.docker.internal:11434/v1`, or the host's LAN/mesh IP). This is the one setup where your prompts never leave your hardware.
 >
 > See [Part E](#part-e--first-boot--provider-setup) and the [provider docs](https://hermes-agent.nousresearch.com/docs/integrations/providers).
