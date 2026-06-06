@@ -12,6 +12,14 @@ This guide is **hardware‑agnostic** and **fully sanitized**. Every secret or p
 > [!TIP]
 > **In a hurry? Let your AI agent do it for you.** Skip the manual steps and **[jump to the AI agent setup prompt](#ai-agent-autonomous-setup-prompt)** — paste it into your favorite coding agent (Claude Code, Cursor, etc.) and it performs the entire install, pausing for the Tailscale login link it hands you (and, if you opt into a chat channel, for the bot token).
 
+> [!TIP]
+> **Bring your own subscription, or run models locally.** As of 2026-06-06 you don't need a separate per-token API bill:
+>
+> - **Use your ChatGPT Plus/Pro subscription** through the **OpenAI Codex** provider: run `hermes model`, pick *OpenAI Codex*, and complete the device-code login (open a URL, enter a code — no Codex CLI required). Claude Max (Anthropic) and Google Gemini offer similar subscription / OAuth logins.
+> - **Run your own local models** and connect them to Hermes: pick *Custom endpoint* in `hermes model` and point it at any OpenAI-compatible URL, e.g. Ollama (`http://localhost:11434/v1`), LM Studio (`http://localhost:1234/v1`), llama.cpp (`http://localhost:8080/v1`), or vLLM (`http://localhost:8000/v1`). From the Docker container, target the host instead of `localhost` (e.g. `http://host.docker.internal:11434/v1`, or the host's LAN/mesh IP). This is the one setup where your prompts never leave your hardware.
+>
+> See [Part E](#part-e--first-boot--provider-setup) and the [provider docs](https://hermes-agent.nousresearch.com/docs/integrations/providers).
+
 > [!WARNING]
 > **Use at your own risk.** These instructions — and the AI agent setup prompt — are provided **as is, with no warranty of any kind**. **Review and understand every command before you run it.** You alone are responsible for anything you execute on your systems; the author and Epsilon LLC accept **no liability** for any damage, data loss, downtime, lockout, or security issue that may result. The AI agent prompt makes changes to your system autonomously — supervise it and approve each step deliberately. By following this guide, you accept these terms (the guide is provided under the MIT License).
 
