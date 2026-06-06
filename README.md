@@ -745,7 +745,7 @@ Send the bot a direct message to confirm it answers.
 > [!CAUTION]
 > **Run this prompt at your own risk.** It instructs an AI agent to make real changes to your system — installing packages, running Docker, editing configuration. It is provided **as is, with no warranty** and **no liability** on the part of the author or Epsilon LLC. Read the prompt in full, supervise the agent at every step, and verify each command before you approve it.
 
-Copy everything in the box below into your preferred coding agent (Claude Code, Cursor, etc.). Fill in the **OPERATOR INPUTS** first. The agent does the full install and **pauses only for the Tailscale browser login**, handing you the authentication URL.
+Copy everything in the box below into your preferred coding agent (Claude Code, Cursor, etc.). Fill in the **OPERATOR INPUTS** first. The agent does the full install and **pauses for the Tailscale browser login** (handing you the authentication URL) and, if you opt into a chat channel, for the bot token. This prompt is the **Docker** path; for a native install see [Appendix B](#appendix-b---alternative-install-native-cli-no-docker).
 
 ```text
 You are setting up a self-hosted Nous Research Hermes Agent on a Linux box I own,
@@ -762,6 +762,8 @@ before running anything destructive, and verify each phase before moving on.
 - Model provider:    <PROVIDER>  (I'll complete any OAuth/API-key step when prompted)
 - Backups:           <BACKUP_GIT_REMOTE> + deploy key at <DEPLOY_KEY_PATH>
                      (skip backups entirely if I leave these blank)
+- Chat channel:      OPTIONAL. Name a platform (Telegram is easiest) or leave blank
+                     to skip. If set, I'll hand you the bot token when you ask.
 
 === PREREQUISITES — verify or establish these first ===
 1. Confirm SSH connectivity to the target and that the user has sudo.
@@ -832,18 +834,34 @@ H. Backups (only if I provided a repo + deploy key):
    - Add a nightly cron at 03:00 logging to <INSTALL_DIR>/logs/backup.log.
    - Before pushing, run `git status` and confirm NO secret files are staged.
 
+I. Chat channel (ONLY if I named one in OPERATOR INPUTS; otherwise skip):
+   - Run the interactive wizard inside the container:
+       docker exec -it -u 1000:1000 hermes hermes gateway setup
+     Select the platform (e.g. Telegram). When it asks for the bot token, STOP and
+     request it from me (Telegram: @BotFather -> /newbot; Discord: Developer Portal).
+     Paste it when I provide it; it is written to <INSTALL_DIR>/data/.env.
+   - Lock the bot to me: in <INSTALL_DIR>/data/.env set an allowlist, e.g.
+       TELEGRAM_ALLOWED_USERS=<my numeric id>   (find it via @userinfobot)
+     or the cross-channel GATEWAY_ALLOWED_USERS. NEVER set GATEWAY_ALLOW_ALL_USERS=true.
+   - Apply and verify: `cd <INSTALL_DIR> && docker compose restart`, then
+     `docker exec -it -u 1000:1000 hermes hermes gateway status` should show the
+     channel connected. Ask me to DM the bot to confirm it replies.
+
 === VERIFICATION (report results) ===
 - From the server: `curl -s http://<TAILSCALE_IP>:9119/api/status` shows
   auth_required:true and auth_providers:["basic"].
 - Container STATUS is healthy; Docker is enabled on boot.
 - `hermes status` shows the provider + model.
 - (If backups) the latest commit pushed and no secrets were committed.
+- (If a chat channel) `hermes gateway status` shows it connected and the bot replies to my DM.
 
 === FINISH ===
 Summarize: the mesh IP/URL to use, that the dashboard needs the username/password
 I set, and remind me that the desktop app (Settings -> Gateway -> Remote gateway,
 URL http://<TAILSCALE_IP>:9119) requires a quick re-sign-in on each launch with
-basic auth. Do NOT store my password or secret anywhere outside <INSTALL_DIR>/.env.
+basic auth. If I enabled a chat channel, say which platform is live and confirm only
+my allowlisted id can drive it. Do NOT store my password, secret, or any bot token
+anywhere outside <INSTALL_DIR>/.env and <INSTALL_DIR>/data/.env.
 ```
 
 ---
