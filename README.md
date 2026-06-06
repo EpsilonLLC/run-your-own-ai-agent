@@ -34,10 +34,12 @@ This guide is **hardware‑agnostic** and **fully sanitized**. Every secret or p
 15. [Part K — Connecting the desktop app](#part-k--connecting-the-desktop-app)
 16. [Part L — Upgrades](#part-l--upgrades)
 17. [Part M — Optional hardening & extras](#part-m--optional-hardening--extras)
-18. [Troubleshooting](#troubleshooting)
-19. [Security checklist](#security-checklist)
-20. [AI‑agent autonomous‑setup prompt](#ai-agent-autonomous-setup-prompt)
-21. [Appendix — Sanitized config files](#appendix--sanitized-config-files)
+18. [Part N - Gateway channels (Telegram, Discord, etc.)](#part-n---gateway-channels-telegram-discord-etc)
+19. [Troubleshooting](#troubleshooting)
+20. [Security checklist](#security-checklist)
+21. [AI‑agent autonomous‑setup prompt](#ai-agent-autonomous-setup-prompt)
+22. [Appendix — Sanitized config files](#appendix--sanitized-config-files)
+23. [Appendix B - Alternative install (native CLI, no Docker)](#appendix-b---alternative-install-native-cli-no-docker)
 
 ---
 
@@ -62,6 +64,9 @@ Nothing real appears in this document. Replace these as you go:
 | `<API_KEY>` | Provider API key (if not using OAuth) | keep secret |
 | `<BACKUP_GIT_REMOTE>` | Private repo for backups | `git@github.com:you/private-repo.git` |
 | `<DEPLOY_KEY_PATH>` | SSH key used only for backup pushes | `~/.ssh/id_ed25519_backup` |
+| `<TELEGRAM_BOT_TOKEN>` | Telegram bot token (from @BotFather) | keep secret |
+| `<TELEGRAM_USER_ID>` | Your numeric Telegram user id (from @userinfobot) | e.g. `123456789` |
+| `<DISCORD_BOT_TOKEN>` | Discord bot token (Discord Developer Portal) | keep secret |
 
 **Ports are not secrets** and are kept literal: **9119** = dashboard, **8642** = gateway API (dormant by default).
 
@@ -237,6 +242,8 @@ chmod 600 <INSTALL_DIR>/.env
 
 ## Part D — The `docker-compose.yml`, annotated
 
+> **Prefer not to use Docker?** See [Appendix B](#appendix-b---alternative-install-native-cli-no-docker) for the official-installer / native-CLI path (it uses a systemd service instead of Docker's restart policy for persistence).
+
 Create `<INSTALL_DIR>/docker-compose.yml`:
 
 ```yaml
@@ -298,6 +305,23 @@ docker compose up -d
 docker compose ps          # wait for STATUS = healthy
 ```
 
+This first-run onboarding takes about five minutes and stays entirely inside Docker. (Until you add the CLI wrapper in [Part H](#part-h--the-host-cli-wrapper), every `hermes ...` below is the long form `docker exec -it -u 1000:1000 hermes hermes ...`.)
+
+**Step 1 - Pick a provider.** Hermes is provider-agnostic; what differs is how you authenticate. **OAuth** providers log in through a browser/device code and store a self-refreshing token in `./data` (no key on disk). **API-key** providers read a key from the Hermes-native secrets file (`<INSTALL_DIR>/data/.env`).
+
+| Provider | Auth method | What you supply |
+|---|---|---|
+| Nous Portal | OAuth (device login) | browser/device login; also enables the Tool Gateway |
+| Codex (ChatGPT account) | OAuth | browser/device login |
+| MiniMax / xAI Grok | OAuth | browser/device login |
+| OpenRouter | API key | `OPENROUTER_API_KEY` |
+| OpenAI | API key | `OPENAI_API_KEY` |
+| Any OpenAI-compatible endpoint | API key + base URL | `OPENAI_API_KEY` + `OPENAI_BASE_URL` |
+
+> **OAuth or API key?** OAuth is the easiest and keeps no long-lived key on disk; it is also the better fit for the desktop client, whose OAuth sessions persist across restarts (see [Part F](#part-f--dashboard-authentication) and [Part K](#part-k--connecting-the-desktop-app)). An API key is the simplest path for aggregators like OpenRouter or your own endpoint. Either way the secret lives in `<INSTALL_DIR>/data/.env` (chmod 600, git-ignored), never in the Compose `.env`.
+
+**Step 2 - Authenticate and run the setup wizard.**
+
 Configure your model provider. Two common paths:
 
 ```bash
@@ -308,12 +332,21 @@ docker exec -it -u 1000:1000 hermes hermes setup model
 docker exec -it -u 1000:1000 hermes hermes login --provider <PROVIDER> --no-browser
 ```
 
-`--no-browser` prints a URL + code to authenticate on another device — handy on a headless server. After changing provider/config, apply it:
+`--no-browser` prints a URL + code to authenticate on another device — handy on a headless server. **Step 3 - Choose your default model.** The `setup model` wizard above already lets you pick a default model for your provider. To set or change it non-interactively at any time:
+
+```bash
+docker exec -it -u 1000:1000 hermes hermes config set model <MODEL>   # provider-qualified id, e.g. nous/<model>
+docker exec -it -u 1000:1000 hermes hermes setup model               # or re-run the picker
+```
+
+**Step 4 - Apply and verify.** After changing provider/config, apply it:
 
 ```bash
 cd <INSTALL_DIR> && docker compose restart
 docker exec -it -u 1000:1000 hermes hermes status   # confirm provider + model
 ```
+
+If anything looks off, run `hermes doctor` (`docker exec -it -u 1000:1000 hermes hermes doctor`) to diagnose configuration issues — for example a provider selected but not yet authenticated.
 
 > Once you install the CLI wrapper in [Part H](#part-h--the-host-cli-wrapper), these become simply `hermes setup model`, `hermes login ...`, `hermes status`.
 
@@ -601,6 +634,61 @@ curl -s http://<TAILSCALE_IP>:9119/api/status
 
 ---
 
+## Part N - Gateway channels (Telegram, Discord, etc.)
+
+> **Optional.** Everything so far gives you a dashboard, a CLI, and a desktop client. The *gateway* can also bridge your agent to chat platforms — Telegram, Discord, Slack, WhatsApp, Signal, and more — so you can reach it from apps you already use. This is opt-in; skip it if you only want the dashboard.
+
+Wiring a channel is three steps: get a bot credential from the platform, register it with Hermes, then reload the gateway. (As elsewhere, after [Part H](#part-h--the-host-cli-wrapper) every `docker exec -it -u 1000:1000 hermes hermes ...` below is just `hermes ...`.)
+
+### 1) Get a bot credential
+
+- **Telegram:** message **@BotFather**, send `/newbot`, and give it a name plus a username ending in `bot`. BotFather replies with a **bot token** — copy it. Then message **@userinfobot** to get your own numeric user id, so you can lock the bot to yourself.
+- **Discord:** open the **Discord Developer Portal**, create an application and a bot user, then on the **Bot** page click **Reset Token** and copy it (it is shown only once). Invite the bot to your server.
+- Other platforms (Slack, WhatsApp, Signal, ...) follow the same shape: create a bot/app on their side, obtain a token, hand it to Hermes.
+
+> Treat these tokens like passwords — anyone holding one controls that bot. They belong in the **Hermes-native secrets file** (`<INSTALL_DIR>/data/.env`), which is `chmod 600` and git-ignored (see [Part J](#part-j--automated-backups)). Never put them in the Compose `.env` and never commit them.
+
+### 2) Register the channel with Hermes
+
+The interactive way (recommended) walks you through platform selection and token entry:
+
+```bash
+docker exec -it -u 1000:1000 hermes hermes gateway setup
+```
+
+Or set it directly in `<INSTALL_DIR>/data/.env`. Telegram:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=<TELEGRAM_BOT_TOKEN>
+TELEGRAM_ALLOWED_USERS=<TELEGRAM_USER_ID>     # comma-separated; locks the bot to your id(s)
+```
+
+Discord uses `DISCORD_BOT_TOKEN`, plus optional behaviour keys that mirror the `discord:` block in `data/config.yaml`:
+
+```dotenv
+DISCORD_BOT_TOKEN=<DISCORD_BOT_TOKEN>
+# Optional behaviour (config.yaml `discord:` keys; defaults shown):
+#   require_mention: true        only respond when @mentioned in a server channel (DMs always work)
+#   auto_thread: true            open a thread on each @mention to keep channels tidy
+#   free_response_channels: ""   comma-separated channel ids that answer every message, no mention
+#   ignored_channels: []         channel ids the bot never responds in
+```
+
+### 3) Reload and verify
+
+In this Docker deployment the gateway is **already running** as the container's main process (`command: gateway run`) — you don't start a second one. Restart the container so it re-reads `data/.env` (and any channel you added with `gateway setup`), then check it:
+
+```bash
+cd <INSTALL_DIR> && docker compose restart
+docker exec -it -u 1000:1000 hermes hermes gateway status   # confirm the channel is connected
+```
+
+Send the bot a direct message to confirm it answers.
+
+> **Still private.** The gateway reaches these platforms over **outbound** connections, so it needs no inbound ports — the privacy boundary from [Part B](#part-b--tailscale--the-dns-gotcha) is unchanged. But the bot is reachable by anyone who can message it, so always set an allowlist (`TELEGRAM_ALLOWED_USERS`, Discord `require_mention`, etc.) so only you or your team can drive the agent.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -845,6 +933,106 @@ logs/
 ```cron
 0 3 * * * <INSTALL_DIR>/scripts/hermes-backup.sh >> <INSTALL_DIR>/logs/backup.log 2>&1
 ```
+
+---
+
+## Appendix B - Alternative install (native CLI, no Docker)
+
+Everything above runs Hermes in Docker. If you would rather run it **natively** — directly on the host via the official installer — here is the alternate path. Two things change: you manage the process with **systemd** instead of Docker's restart policy, and Hermes stores its data in `~/.hermes` instead of `<INSTALL_DIR>/data`. **Tailscale ([Part B](#part-b--tailscale--the-dns-gotcha)), backups ([Part J](#part-j--automated-backups)), the desktop app ([Part K](#part-k--connecting-the-desktop-app)), and gateway channels ([Part N](#part-n---gateway-channels-telegram-discord-etc)) all still apply** — only the install and persistence layers differ.
+
+> Same warning as the rest of this guide: piping an installer into a shell runs remote code. Read `install.sh` before you run it if you want to be sure.
+
+### 1) Install with the official installer
+
+```bash
+# Linux / macOS / WSL2 / Android (Termux):
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+source ~/.bashrc        # or ~/.zshrc — puts `hermes` on your PATH
+```
+
+```powershell
+# Windows (native PowerShell):
+iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+```
+
+A per-user install puts the `hermes` launcher at `~/.local/bin/hermes`, the code under `~/.hermes/hermes-agent/`, and config + data in `~/.hermes/` (`config.yaml` for settings, `.env` for secrets). A system-wide root install uses `/usr/local/bin/hermes` and `/usr/local/lib/hermes-agent/` instead.
+
+### 2) First-run setup (same onboarding as Part E)
+
+The provider and model walkthrough is identical to [Part E](#part-e--first-boot--provider-setup) — just drop the `docker exec ...` prefix and call `hermes` directly:
+
+```bash
+hermes setup                       # full guided wizard (provider auth + initial settings)
+hermes setup --portal              # one-shot Nous Portal login (provider + Tool Gateway)
+hermes setup model                 # pick the default model
+hermes config set model <MODEL>    # or set it non-interactively
+hermes status                      # confirm provider + model
+hermes doctor                      # diagnose configuration issues
+```
+
+Secrets go to `~/.hermes/.env`, non-secret settings to `~/.hermes/config.yaml` (manage with `hermes config`, `hermes config edit`, `hermes config check`).
+
+### 3) Persistence: a systemd service instead of Docker
+
+Docker's `restart: unless-stopped` is gone, so use **systemd** to keep the gateway alive across crashes and reboots. The installer can wire this for you:
+
+```bash
+# Per-user service (runs as your login). Enable lingering so it survives logout/reboot:
+hermes gateway install
+loginctl enable-linger "$USER"
+
+# Or a system-wide service that starts at boot (runs as root):
+sudo hermes gateway install --system
+
+# Manage it:
+hermes gateway start
+hermes gateway status
+hermes gateway stop
+```
+
+If you prefer to write the unit yourself, a minimal system service looks like this (sanitized):
+
+```ini
+# /etc/systemd/system/hermes.service
+[Unit]
+Description=Hermes Agent gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=<SERVER_USER>
+Environment=PATH=/home/<SERVER_USER>/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/<SERVER_USER>/.local/bin/hermes gateway
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now hermes
+systemctl status hermes
+```
+
+This is the native counterpart to [Part G](#part-g--dashboard-persistence): **systemd**, not tmux, is what keeps the service running. The interactive chat TUI (`hermes chat --tui`) and the `hermes-tui` launcher from [Part I](#part-i--tmux--the-hermes-tui-launcher) work exactly as written.
+
+### 4) What changes for the rest of the guide
+
+| Area | Docker (main guide) | Native (this appendix) |
+|---|---|---|
+| Install | `nousresearch/hermes-agent:latest` image | `install.sh` / `install.ps1` |
+| Data + secrets | `<INSTALL_DIR>/data` (`./data:/opt/data`) | `~/.hermes` (`config.yaml` + `.env`) |
+| Persistence | `restart: unless-stopped` + Docker on boot | `systemd` (`hermes gateway install --system`) |
+| Upgrades | `docker compose pull && docker compose up -d` | `hermes update` |
+| Mesh-only binding | host port maps to `<TAILSCALE_IP>` | set `HERMES_DASHBOARD_HOST=<TAILSCALE_IP>` |
+| Backups (Part J) | back up `<INSTALL_DIR>` | back up `~/.hermes` (same secret-excluding `.gitignore`) |
+
+> **Binding to the mesh only, natively.** Without Docker's port-mapping layer there is nothing else to restrict the listener, so set the dashboard's bind address yourself: put `HERMES_DASHBOARD_HOST=<TAILSCALE_IP>` in `~/.hermes/.env` (or use `hermes config set`). The dashboard is then reachable on the tailnet but not on `0.0.0.0`. Verify with `curl -s http://<TAILSCALE_IP>:9119/api/status`, exactly as in [Part F](#part-f--dashboard-authentication). The mesh-only privacy boundary from [Part B](#part-b--tailscale--the-dns-gotcha) is preserved.
+>
+> **Updates:** `hermes update` auto-detects how you installed and runs the matching update command — the native equivalent of `docker compose pull && docker compose up -d`.
 
 ---
 
