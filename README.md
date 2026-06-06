@@ -120,6 +120,12 @@ flowchart TB
         desktop -- "http://&lt;TAILSCALE_IP&gt;:9119" --> hermes
     end
     cron -- "git push (SSH)" --> repo[("Private backup repo<br/>secrets git-ignored")]
+    repo --- z1[" "]
+    z1 --- z2[" "]
+    z2 --- z3[" "]
+    classDef ghost fill:transparent,stroke:transparent,color:transparent
+    class z1,z2,z3 ghost
+    linkStyle 6,7,8 stroke-width:0px,stroke:transparent
 ```
 
 **Components:**
