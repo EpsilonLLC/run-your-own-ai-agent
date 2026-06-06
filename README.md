@@ -67,6 +67,7 @@ Nothing real appears in this document. Replace these as you go:
 | `<TELEGRAM_BOT_TOKEN>` | Telegram bot token (from @BotFather) | keep secret |
 | `<TELEGRAM_USER_ID>` | Your numeric Telegram user id (from @userinfobot) | e.g. `123456789` |
 | `<DISCORD_BOT_TOKEN>` | Discord bot token (Discord Developer Portal) | keep secret |
+| `<TELEGRAM_CHAT_ID>` | A Telegram group chat id the bot serves | e.g. `-1001234567890` |
 
 **Ports are not secrets** and are kept literal: **9119** = dashboard, **8642** = gateway API (dormant by default).
 
@@ -636,7 +637,7 @@ curl -s http://<TAILSCALE_IP>:9119/api/status
 
 ## Part N - Gateway channels (Telegram, Discord, etc.)
 
-> **Optional.** Everything so far gives you a dashboard, a CLI, and a desktop client. The *gateway* can also bridge your agent to chat platforms — Telegram, Discord, Slack, WhatsApp, Signal, and more — so you can reach it from apps you already use. This is opt-in; skip it if you only want the dashboard.
+> **Optional.** Everything so far gives you a dashboard, a CLI, and a desktop client. The *gateway* can also bridge your agent to chat platforms — Telegram, Discord, Slack, WhatsApp, Signal, and more — so you can reach it from apps you already use (20+ channels are supported). **Telegram is the most popular and the quickest to wire up**, so it is the worked example below; the rest follow the same pattern. This is opt-in; skip it if you only want the dashboard.
 
 Wiring a channel is three steps: get a bot credential from the platform, register it with Hermes, then reload the gateway. (As elsewhere, after [Part H](#part-h--the-host-cli-wrapper) every `docker exec -it -u 1000:1000 hermes hermes ...` below is just `hermes ...`.)
 
@@ -656,12 +657,33 @@ The interactive way (recommended) walks you through platform selection and token
 docker exec -it -u 1000:1000 hermes hermes gateway setup
 ```
 
-Or set it directly in `<INSTALL_DIR>/data/.env`. Telegram:
+It is an arrow-key wizard: choose a platform, paste the token, and it writes the credentials to `data/.env` for you. **By default the gateway denies everyone who is not in an allowlist (or who has not paired with it via DM)**, so an unconfigured bot is closed rather than open.
+
+Or set it directly in `<INSTALL_DIR>/data/.env`. **Telegram** (the most common):
 
 ```dotenv
 TELEGRAM_BOT_TOKEN=<TELEGRAM_BOT_TOKEN>
 TELEGRAM_ALLOWED_USERS=<TELEGRAM_USER_ID>     # comma-separated; locks the bot to your id(s)
 ```
+
+For groups, optionally restrict who and where:
+
+```dotenv
+# Optional group access:
+TELEGRAM_GROUP_ALLOWED_USERS=<TELEGRAM_USER_ID>     # who may drive the bot inside groups
+TELEGRAM_GROUP_ALLOWED_CHATS=<TELEGRAM_CHAT_ID>     # which group chat id(s) it serves
+```
+
+Telegram behaviour lives in `data/config.yaml` under a `telegram:` block (defaults shown):
+
+```yaml
+telegram:
+  require_mention: true            # in groups, only answer on a /command, a direct reply, or an @mention
+  exclusive_bot_mentions: true     # ignore mentions aimed at other bots
+  # mention_patterns: ["^\\s*<name>\\b"]   # extra regexes that count as a mention
+```
+
+> **Telegram group gotcha:** Telegram bots run in *privacy mode* by default and only see `/commands` and direct replies. To let the bot read ordinary group messages, open BotFather > `/mybots` > **Bot Settings > Group Privacy > Turn off**, then remove and re-add the bot to the group.
 
 Discord uses `DISCORD_BOT_TOKEN`, plus optional behaviour keys that mirror the `discord:` block in `data/config.yaml`:
 
@@ -685,7 +707,7 @@ docker exec -it -u 1000:1000 hermes hermes gateway status   # confirm the channe
 
 Send the bot a direct message to confirm it answers.
 
-> **Still private.** The gateway reaches these platforms over **outbound** connections, so it needs no inbound ports — the privacy boundary from [Part B](#part-b--tailscale--the-dns-gotcha) is unchanged. But the bot is reachable by anyone who can message it, so always set an allowlist (`TELEGRAM_ALLOWED_USERS`, Discord `require_mention`, etc.) so only you or your team can drive the agent.
+> **Still private.** The gateway reaches these platforms over **outbound** connections, so it needs no inbound ports — the privacy boundary from [Part B](#part-b--tailscale--the-dns-gotcha) is unchanged. The gateway also **denies unknown users by default**, but keep the allowlist tight anyway: set a per-channel list (`TELEGRAM_ALLOWED_USERS`, `DISCORD_ALLOWED_USERS`) or the cross-channel `GATEWAY_ALLOWED_USERS` to your own id(s). Never set `GATEWAY_ALLOW_ALL_USERS=true` on a bot that can run terminal commands.
 
 ---
 
