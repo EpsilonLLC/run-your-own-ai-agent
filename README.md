@@ -123,6 +123,10 @@ flowchart TB
         repo[("Private backup repo<br/>secrets git-ignored")]
     end
     cron -- "git push (SSH)" --> repo
+    style mesh fill:#aab2c033,stroke:#aab2c0
+    style box fill:#aab2c033,stroke:#aab2c0
+    style docker fill:#aab2c033,stroke:#aab2c0
+    style offsite fill:#aab2c033,stroke:#aab2c0
 ```
 
 **Components:**
