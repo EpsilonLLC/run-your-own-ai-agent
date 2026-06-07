@@ -76,6 +76,7 @@ Nothing real appears in this document. Replace these as you go:
 | `<TELEGRAM_USER_ID>` | Your numeric Telegram user id (from @userinfobot) | e.g. `123456789` |
 | `<DISCORD_BOT_TOKEN>` | Discord bot token (Discord Developer Portal) | keep secret |
 | `<TELEGRAM_CHAT_ID>` | A Telegram group chat id the bot serves | e.g. `-1001234567890` |
+| `<WINDOWS_USER>` | Your Windows username on the client laptop | e.g. `jdoe` |
 
 **Ports are not secrets** and are kept literal: **9119** = dashboard, **8642** = gateway API (dormant by default).
 
@@ -640,6 +641,57 @@ curl -s http://<TAILSCALE_IP>:9119/api/status
 - **Health monitor:** a tiny cron that curls `http://<TAILSCALE_IP>:9119/health` and pings you (email/chat) on failure.
 - **Tailscale ACLs:** lock down which devices on your tailnet may reach ports 9119/8642 if you share the tailnet with others.
 - **Enabling the gateway API (8642):** dormant by default. Turn it on only if you need programmatic access, and protect it with a key (`API_SERVER_ENABLED=true` + an API key) — never expose it publicly.
+
+### Getting files off the box: mount it as a drive (free, over SFTP)
+
+When the agent writes a file on the server, you don't need to `scp` it down by hand — mount the server's data over **SFTP** as a normal drive on your laptop and drag files off. The free route on Windows is **WinFsp + SSHFS-Win** (Mountain Duck is the paid point-and-click equivalent; Cyberduck/WinSCP are free transfer-only options). Two pieces: tell the agent **where** to drop deliverables, then **mount** that folder.
+
+**1) Give the agent an exports folder and a standing rule (on the server).** The agent's working directory is the container's `/opt/data`, which is the host's `<INSTALL_DIR>/data`. Create an `exports/` folder there plus an `AGENTS.md` that Hermes auto-loads from the working directory at session start:
+
+```bash
+mkdir -p <INSTALL_DIR>/data/exports
+cat > <INSTALL_DIR>/data/AGENTS.md <<'EOF'
+# Working rules for this agent
+- Save every deliverable (guides, docs, reports, exports) under `/opt/data/exports/`.
+- Keep deliverables under `/opt/data` so they are visible on the host and my mounted drive.
+EOF
+```
+
+> The rule takes effect on the **next** session (the system prompt is cached). And only the bind-mounted `./data` volume is visible on the host, so anything the agent writes elsewhere in the container won't appear over SFTP.
+
+**2) Install the free mount tools (on your Windows laptop).**
+
+```powershell
+winget install -e --id WinFsp.WinFsp
+winget install -e --id SSHFS-Win.SSHFS-Win
+```
+
+**3) Mount the `exports/` folder as a drive (e.g. `Z:`).** Mount **only** `exports/`, never the whole `data/` dir — `data/` holds the agent's secrets (`.env`, `auth.json`, sessions). Connect as `<SERVER_USER>` so file ownership stays correct. The simple way (network-provider mount):
+
+```powershell
+# UNC path is <INSTALL_DIR>/data/exports written with backslashes and no leading slash:
+net use Z: \\sshfs.kr\<SERVER_USER>@<TAILSCALE_IP>\opt\hermes\data\exports /persistent:no
+```
+
+> [!WARNING]
+> **Two gotchas that will cost you an afternoon (learned the hard way):**
+> - **`System error 67` right after installing.** The SSHFS-Win network provider isn't loaded into Windows until you **sign out/in or reboot once**; restarting the Workstation service is *not* enough. After one reboot, `net use` works.
+> - **No-reboot alternative = mount directly via the bundled `sshfs.exe` (FUSE)** — but you must put the SSHFS-Win bin **first on `PATH`**, otherwise Windows' own `ssh.exe` is used, which can't read the Cygwin `/cygdrive/...` key path, so the mount silently fails to authenticate (it just spins when `-o reconnect` is set).
+
+No-reboot mount (bundled Cygwin ssh + key auth):
+
+```powershell
+$env:PATH = 'C:\Program Files\SSHFS-Win\bin;' + $env:PATH
+& 'C:\Program Files\SSHFS-Win\bin\sshfs.exe' `
+  <SERVER_USER>@<TAILSCALE_IP>:<INSTALL_DIR>/data/exports Z: `
+  -o IdentityFile=/cygdrive/c/Users/<WINDOWS_USER>/.ssh/id_ed25519 `
+  -o IdentitiesOnly=yes `
+  -o UserKnownHostsFile=/cygdrive/c/Users/<WINDOWS_USER>/.ssh/known_hosts `
+  -o StrictHostKeyChecking=accept-new `
+  -o idmap=user -o uid=-1 -o gid=-1 -o reconnect -o ServerAliveInterval=15
+```
+
+Unmount with `Get-Process sshfs | Stop-Process -Force` (FUSE mount) or `net use Z: /delete` (network mount). After this, whatever the agent saves into `exports/` shows up in `Z:\` instantly — point, click, copy. (On macOS the free equivalent is **macFUSE + sshfs**; or use Mountain Duck on either OS.)
 
 ---
 
